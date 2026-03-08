@@ -1,0 +1,18 @@
+{
+  "listeValori": null,
+  "opzioni": [],
+  "paginatore": null,
+  "valori": [
+    {
+      "materia": "MATEMATICA",
+      "descrizioneCompito": [
+        "Esercizi 1-10"
+      ],
+      "dataAssegnazione": "2026-01-16T00:00:00+01:00",
+      "dataConsegna": "2026-01-22T00:00:00+01:00",
+      "dataPromemoria": "2026-01-20T00:00:00+01:00",
+      "docente": "DOCENTE REDATTO",
+      "nomeArgomento": "Divisioni"
+    }
+  ]
+}
