@@ -129,10 +129,10 @@ def prompt_homework_range(active_student: Student, input_fn: InputFn = input, ou
     output(
         Fore.YELLOW
         + f"Compiti: premi invio per usare il default da {default_start.strftime('%d-%m-%Y')} "
-        + f"fino a fine anno scolastico ({default_end.strftime('%d-%m-%Y')})"
+        + f"fino al {default_end.strftime('%d-%m-%Y')} (+14 giorni)"
     )
     start_text = input_fn("Data inizio [default oggi]: ").strip()
-    end_text = input_fn("Data fine [vuoto = fine anno scolastico]: ").strip()
+    end_text = input_fn("Data fine [vuoto = +14 giorni]: ").strip()
     start_date = parse_user_date(start_text) if start_text else default_start
     end_date = parse_user_date(end_text) if end_text else default_end
     return normalize_date_range(start_date, end_date)

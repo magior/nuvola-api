@@ -16,6 +16,7 @@ Il progetto non e' affiliato con Madisoft. Flussi di login, endpoint e payload p
 
 ```text
 docs/
+docs/legacy-student-api.md
 src/nuvola/domain/
 src/nuvola/application/
 src/nuvola/adapters/tenant_api/

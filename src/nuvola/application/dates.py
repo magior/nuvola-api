@@ -24,7 +24,7 @@ def school_year_end_date(start_year: Union[str, int]) -> date:
 
 def default_homework_range(student: Student, today: Optional[date] = None) -> Tuple[date, date]:
     start_date = today or today_local()
-    end_date = school_year_end_date(student.school_year)
+    end_date = start_date + timedelta(days=14)
     return start_date, end_date
 
 

@@ -35,5 +35,6 @@
 ## Adapter responsibilities
 
 - `legacy_student_api`: gestisce login web, `login-from-web` e gli endpoint legacy studente.
+- `legacy_student_api`: per i dettagli osservati sugli endpoint legacy, vedi [`docs/legacy-student-api.md`](docs/legacy-student-api.md).
 - `tenant_api`: espone lo scheletro del backend tenant documentato, ma oggi solleva `NotImplementedError` con messaggi espliciti.
 - `storage.file_session_store`: persiste localmente backend, tenant, token e `student_id`.

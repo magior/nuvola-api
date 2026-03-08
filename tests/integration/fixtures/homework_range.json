@@ -1,0 +1,60 @@
+{
+  "listeValori": {
+    "valori_classi_per_alunno": {
+      "999": "CLASSE DEMO"
+    }
+  },
+  "opzioni": [
+    {
+      "opzione": "compito_mostra_argomento_lezione",
+      "impostazione": false
+    }
+  ],
+  "valori": [
+    {
+      "docente": "DOCENTE TEST 2",
+      "materia": "SCIENZE",
+      "nomeArgomento": null,
+      "idArgomento": null,
+      "dataAssegnazione": "2026-03-06T00:00:00+01:00",
+      "dataConsegna": "2026-03-11T00:00:00+01:00",
+      "descrizioneCompito": [
+        "Leggere la scheda introduttiva e completare gli esercizi del foglio allegato."
+      ],
+      "allegati": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "nome": "immagine-esempio-a.jpg",
+          "mimeType": "image/jpeg"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "nome": "immagine-esempio-b.jpg",
+          "mimeType": "image/jpeg"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "nome": "scheda-esercizi.pdf",
+          "mimeType": "application/pdf"
+        }
+      ],
+      "classe": "CLASSE DEMO",
+      "classeId": 999
+    },
+    {
+      "docente": "DOCENTE TEST 3",
+      "materia": "ITALIANO",
+      "nomeArgomento": null,
+      "idArgomento": null,
+      "dataAssegnazione": "2026-03-06T00:00:00+01:00",
+      "dataConsegna": "2026-03-09T00:00:00+01:00",
+      "descrizioneCompito": [
+        "Scrivere un breve riassunto del testo di esempio e completare due domande guida."
+      ],
+      "allegati": [],
+      "classe": "CLASSE DEMO",
+      "classeId": 999
+    }
+  ],
+  "paginatore": null
+}

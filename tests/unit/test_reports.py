@@ -16,7 +16,7 @@ class ReportsTest(unittest.TestCase):
 
         report = render_subject_grades([subject])
 
-        self.assertIn("31-01-2026 | * | ORALE | docente: DOCENTE REDATTO", report)
+        self.assertIn("31-01-2026 | * | ORALE | docente: DOCENTE TEST 4", report)
         self.assertIn("descrizione: Monomi", report)
         self.assertIn("* Conoscenze: 8", report)
 
@@ -29,8 +29,8 @@ class ReportsTest(unittest.TestCase):
 
         self.assertIn("dataConsegna: 22-01-2026", report)
         self.assertIn("dataAssegnazione: 16-01-2026", report)
-        self.assertIn("docente: DOCENTE REDATTO", report)
-        self.assertIn("nomeArgomento: Divisioni", report)
+        self.assertIn("docente: DOCENTE TEST 1", report)
+        self.assertIn("nomeArgomento: Ripasso unita", report)
 
     def test_render_lesson_topics_shows_order_and_cosignatures(self):
         adapter = LegacyStudentApiAdapter()
@@ -39,7 +39,7 @@ class ReportsTest(unittest.TestCase):
 
         report = render_lesson_topics(topics)
 
-        self.assertIn("cofirme: DOCENTE SUPPORTO (SOSTEGNO, firmato)", report)
+        self.assertIn("cofirme: DOCENTE TEST SUPPORTO (SOSTEGNO, firmato)", report)
         self.assertLess(report.find("1a ora 08:30-09:30"), report.find("2a ora 09:30-10:30"))
 
 

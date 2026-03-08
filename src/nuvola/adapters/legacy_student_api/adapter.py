@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
-from nuvola.application.dates import format_api_date, iter_dates, parse_api_datetime
+from nuvola.application.dates import format_api_date, parse_api_datetime
 from nuvola.domain.models import (
     GradeEntry,
     GradeObjective,
@@ -277,14 +277,15 @@ class LegacyStudentApiAdapter:
         return detailed
 
     def list_homework(self, session: SessionContext, student_id: str, start_date, end_date) -> List[HomeworkItem]:
-        items: List[HomeworkItem] = []
-        headers = self._headers(session.token)
-        for current_date in iter_dates(start_date, end_date):
-            payload = self._get_json(
-                f"/api-studente/v1/alunno/{student_id}/compito/elenco/{format_api_date(current_date)}",
-                headers=headers,
-            )
-            items.extend(self._map_homework(payload))
+        payload = self._get_json(
+            (
+                f"/api-studente/v1/alunno/{student_id}/compito/elenco/"
+                f"{format_api_date(start_date)}/{format_api_date(end_date)}"
+            ),
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id},
+        )
+        items = self._map_homework(payload)
         return sorted(
             items,
             key=lambda item: (

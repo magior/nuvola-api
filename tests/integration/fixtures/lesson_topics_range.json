@@ -4,8 +4,8 @@
   "paginatore": null,
   "valori": [
     {
-      "classe": "5A",
-      "classeId": 526,
+      "classe": "CLASSE DEMO",
+      "classeId": 999,
       "isGruppoClasse": false,
       "ore": [
         {
@@ -17,7 +17,7 @@
             {
               "id": 200,
               "materia": "MATEMATICA",
-              "docente": "DOCENTE REDATTO",
+              "docente": "DOCENTE TEST 1",
               "tipo": "Lezione ordinaria",
               "nomeArgomento": "Divisioni",
               "annotazioni": null,
@@ -38,7 +38,7 @@
             {
               "id": 199,
               "materia": "ITALIANO",
-              "docente": "DOCENTE REDATTO",
+              "docente": "DOCENTE TEST 1",
               "tipo": "Lezione ordinaria",
               "nomeArgomento": "Analisi del testo",
               "annotazioni": "Portare il quaderno",
@@ -47,7 +47,7 @@
               "allegati": [],
               "cofirme": [
                 {
-                  "docente": "DOCENTE SUPPORTO",
+                  "docente": "DOCENTE TEST SUPPORTO",
                   "compresenza": "SOSTEGNO",
                   "firmato": true
                 }

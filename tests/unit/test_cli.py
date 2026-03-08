@@ -26,12 +26,12 @@ class CliHelpersTest(unittest.TestCase):
         self.assertEqual(start_date, date(2026, 3, 2))
         self.assertEqual(end_date, date(2026, 3, 8))
 
-    def test_homework_range_defaults_to_today_through_school_year_end(self):
+    def test_homework_range_defaults_to_today_plus_14_days(self):
         answers = iter(["", ""])
         with patch.object(
             self.cli_module,
             "default_homework_range",
-            return_value=(date(2026, 3, 8), date(2026, 8, 31)),
+            return_value=(date(2026, 3, 8), date(2026, 3, 22)),
         ):
             start_date, end_date = prompt_homework_range(
                 self.students[0],
@@ -39,7 +39,7 @@ class CliHelpersTest(unittest.TestCase):
                 output=lambda _: None,
             )
         self.assertEqual(start_date, date(2026, 3, 8))
-        self.assertEqual(end_date, date(2026, 8, 31))
+        self.assertEqual(end_date, date(2026, 3, 22))
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@
       "voti": [
         {
           "data": "2026-01-31T00:00:00+01:00",
-          "docente": "DOCENTE REDATTO",
+          "docente": "DOCENTE TEST 4",
           "tipologia": "ORALE",
           "valutazione": "*",
           "valutazioneMatematica": null,
@@ -35,7 +35,7 @@
         },
         {
           "data": "2026-01-23T00:00:00+01:00",
-          "docente": "DOCENTE REDATTO",
+          "docente": "DOCENTE TEST 4",
           "tipologia": "SCRITTO",
           "valutazione": "7",
           "valutazioneMatematica": null,

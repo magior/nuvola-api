@@ -24,11 +24,11 @@ class DatesTest(unittest.TestCase):
     def test_school_year_end_date(self):
         self.assertEqual(school_year_end_date("2025"), date(2026, 8, 31))
 
-    def test_default_homework_range_uses_today_and_school_year_end(self):
+    def test_default_homework_range_uses_today_and_plus_14_days(self):
         student = Student("1", "ALUNNO", "UNO", "3A", "2025")
         self.assertEqual(
             default_homework_range(student, today=date(2026, 3, 8)),
-            (date(2026, 3, 8), date(2026, 8, 31)),
+            (date(2026, 3, 8), date(2026, 3, 22)),
         )
 
     def test_default_lesson_topics_range_is_last_7_days(self):
