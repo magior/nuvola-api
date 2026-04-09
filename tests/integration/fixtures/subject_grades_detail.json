@@ -1,0 +1,51 @@
+{
+  "listeValori": null,
+  "opzioni": [],
+  "paginatore": null,
+  "valori": [
+    {
+      "id": 9003,
+      "materia": "MATEMATICA",
+      "conteggioVoti": 2,
+      "media": null,
+      "tipo": null,
+      "voti": [
+        {
+          "data": "2026-01-31T00:00:00+01:00",
+          "docente": "DOCENTE TEST 4",
+          "tipologia": "ORALE",
+          "valutazione": "*",
+          "valutazioneMatematica": null,
+          "faMedia": null,
+          "peso": "100%",
+          "descrizione": "Monomi",
+          "nomeObiettivo": null,
+          "obiettivi": [
+            {
+              "nome": "Conoscenze",
+              "valutazione": "8",
+              "descrizione": "Conoscere regole e definizioni"
+            },
+            {
+              "nome": "Problem solving",
+              "valutazione": "6 1/2",
+              "descrizione": "Impostare la strategia risolutiva"
+            }
+          ]
+        },
+        {
+          "data": "2026-01-23T00:00:00+01:00",
+          "docente": "DOCENTE TEST 4",
+          "tipologia": "SCRITTO",
+          "valutazione": "7",
+          "valutazioneMatematica": null,
+          "faMedia": true,
+          "peso": "100%",
+          "descrizione": "Densita'",
+          "nomeObiettivo": null,
+          "obiettivi": []
+        }
+      ]
+    }
+  ]
+}

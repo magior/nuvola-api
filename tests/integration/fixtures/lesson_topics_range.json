@@ -1,0 +1,62 @@
+{
+  "listeValori": null,
+  "opzioni": [],
+  "paginatore": null,
+  "valori": [
+    {
+      "classe": "CLASSE DEMO",
+      "classeId": 9000,
+      "isGruppoClasse": false,
+      "ore": [
+        {
+          "numeroOra": 2,
+          "inizioOra": "09:30",
+          "fineOra": "10:30",
+          "giorno": "2026-03-02T00:00:00+01:00",
+          "argomenti": [
+            {
+              "id": 9002,
+              "materia": "MATEMATICA",
+              "docente": "DOCENTE TEST 1",
+              "tipo": "Lezione ordinaria",
+              "nomeArgomento": "Divisioni",
+              "annotazioni": null,
+              "descrizioneEstesa": null,
+              "compresenza": "",
+              "allegati": [],
+              "cofirme": [],
+              "video_youtube": []
+            }
+          ]
+        },
+        {
+          "numeroOra": 1,
+          "inizioOra": "08:30",
+          "fineOra": "09:30",
+          "giorno": "2026-03-02T00:00:00+01:00",
+          "argomenti": [
+            {
+              "id": 9001,
+              "materia": "ITALIANO",
+              "docente": "DOCENTE TEST 1",
+              "tipo": "Lezione ordinaria",
+              "nomeArgomento": "Analisi del testo",
+              "annotazioni": "Portare il quaderno",
+              "descrizioneEstesa": "Ripasso capitolo 3",
+              "compresenza": "",
+              "allegati": [],
+              "cofirme": [
+                {
+                  "docente": "DOCENTE TEST SUPPORTO",
+                  "compresenza": "SOSTEGNO",
+                  "firmato": true
+                }
+              ],
+              "video_youtube": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
