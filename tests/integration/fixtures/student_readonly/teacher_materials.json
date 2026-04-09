@@ -1,0 +1,16 @@
+{
+  "valori": [
+    {
+      "id": 901,
+      "oggetto": "Relazione laboratorio",
+      "docente": "DOCENTE TEST 4",
+      "materia": "SCIENZE",
+      "dataCreazione": "2026-04-06T14:30:00+02:00",
+      "allegati": [
+        {
+          "nome": "relazione.pdf"
+        }
+      ]
+    }
+  ]
+}

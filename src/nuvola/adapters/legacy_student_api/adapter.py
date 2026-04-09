@@ -7,15 +7,25 @@ from typing import Any, Dict, List, Optional
 
 from nuvola.application.dates import format_api_date, parse_api_datetime
 from nuvola.domain.models import (
+    AbsenceItem,
+    BookedMeetingItem,
+    EventItem,
+    FillableFormItem,
     GradeEntry,
     GradeObjective,
     GradePeriod,
     HomeworkItem,
     LessonCoSignature,
     LessonTopicEntry,
+    LatestGradeItem,
+    NoteItem,
+    NoticeboardItem,
+    PaymentItem,
+    QuestionnaireItem,
     SessionContext,
     Student,
     SubjectGrades,
+    TeacherMaterialItem,
 )
 
 STANDARD_HOMEWORK_DATE_KEYS = {"dataAssegnazione", "dataConsegna"}
@@ -106,28 +116,7 @@ class LegacyStudentApiAdapter:
         for item in payload.get("valori", []):
             entries = []
             for vote in item.get("voti", []):
-                objectives = [
-                    GradeObjective(
-                        name=objective.get("nome", "-"),
-                        value=objective.get("valutazione", "-"),
-                        description=objective.get("descrizione"),
-                    )
-                    for objective in vote.get("obiettivi", [])
-                ]
-                entries.append(
-                    GradeEntry(
-                        date=parse_api_datetime(vote.get("data")),
-                        value=vote.get("valutazione", "-"),
-                        teacher=vote.get("docente"),
-                        kind=vote.get("tipologia"),
-                        description=vote.get("descrizione"),
-                        weight=vote.get("peso"),
-                        objective_name=vote.get("nomeObiettivo"),
-                        math_value=vote.get("valutazioneMatematica"),
-                        in_average=vote.get("faMedia"),
-                        objectives=objectives,
-                    )
-                )
+                entries.append(self._map_grade_entry(vote))
             subjects.append(
                 SubjectGrades(
                     subject_id=str(item.get("id", "")),
@@ -138,6 +127,42 @@ class LegacyStudentApiAdapter:
                 )
             )
         return subjects
+
+    def _map_grade_entry(self, vote: dict) -> GradeEntry:
+        objectives = [
+            GradeObjective(
+                name=objective.get("nome", "-"),
+                value=objective.get("valutazione", "-"),
+                description=objective.get("descrizione"),
+            )
+            for objective in vote.get("obiettivi", [])
+        ]
+        return GradeEntry(
+            date=parse_api_datetime(vote.get("data")),
+            value=vote.get("valutazione", "-"),
+            teacher=vote.get("docente"),
+            kind=vote.get("tipologia"),
+            description=vote.get("descrizione"),
+            weight=vote.get("peso"),
+            objective_name=vote.get("nomeObiettivo"),
+            math_value=vote.get("valutazioneMatematica"),
+            in_average=vote.get("faMedia"),
+            objectives=objectives,
+        )
+
+    def _map_latest_grades(self, payload: object) -> List[LatestGradeItem]:
+        items = []
+        for item in self._payload_items(payload):
+            items.append(
+                LatestGradeItem(
+                    subject_id=str(item.get("idMateria", "")),
+                    subject=self._first_non_empty(item, "nomeMateria", "materia") or "-",
+                    period_id=str(item.get("idFrazioneTemporale", "")),
+                    entry=self._map_grade_entry(item),
+                    raw=dict(item),
+                )
+            )
+        return items
 
     def _map_homework(self, payload: dict) -> List[HomeworkItem]:
         items = []
@@ -208,6 +233,208 @@ class LegacyStudentApiAdapter:
                     )
         return sorted(entries, key=lambda item: (item.day, item.hour_number, item.subject, item.topic_name))
 
+    def _payload_items(self, payload: object) -> List[dict]:
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
+        if not isinstance(payload, dict):
+            return []
+        for key in ("valori", "items", "data", "results"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, dict)]
+        return []
+
+    @staticmethod
+    def _as_dict(value: object) -> dict:
+        return value if isinstance(value, dict) else {}
+
+    @staticmethod
+    def _first_non_empty(item: dict, *keys: str) -> Optional[str]:
+        for key in keys:
+            value = item.get(key)
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                return text
+        return None
+
+    def _first_datetime(self, item: dict, *keys: str):
+        for key in keys:
+            value = item.get(key)
+            if isinstance(value, str) and value:
+                try:
+                    return parse_api_datetime(value)
+                except ValueError:
+                    continue
+        return None
+
+    @staticmethod
+    def _safe_int(value: object) -> Optional[int]:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _map_menu_options(self, payload: dict) -> dict[str, object]:
+        raw_options = payload.get("opzioni")
+        if not isinstance(raw_options, list):
+            return {}
+        options: dict[str, object] = {}
+        for item in raw_options:
+            if not isinstance(item, dict):
+                continue
+            option_name = item.get("opzione")
+            if not option_name:
+                continue
+            options[str(option_name)] = item.get("impostazione")
+        return options
+
+    def _map_absences(self, payload: object) -> List[AbsenceItem]:
+        items = []
+        for item in self._payload_items(payload):
+            items.append(
+                AbsenceItem(
+                    id=str(item.get("id", "")),
+                    day=self._first_datetime(item, "giorno", "data", "dataEvento", "dataInizio"),
+                    kind=self._first_non_empty(item, "tipo", "tipologia", "stato", "categoria"),
+                    description=self._first_non_empty(item, "descrizione", "motivazione", "note", "titolo"),
+                    raw=dict(item),
+                )
+            )
+        return items
+
+    def _map_notes(self, payload: object) -> List[NoteItem]:
+        items = []
+        for item in self._payload_items(payload):
+            items.append(
+                NoteItem(
+                    id=str(item.get("id", "")),
+                    day=self._first_datetime(item, "giorno", "data", "dataNota"),
+                    kind=self._first_non_empty(item, "tipo", "tipologia", "categoria"),
+                    teacher=self._first_non_empty(item, "docente", "insegnante", "autore"),
+                    description=self._first_non_empty(item, "descrizione", "testo", "nota", "oggetto", "titolo"),
+                    raw=dict(item),
+                )
+            )
+        return items
+
+    def _map_events(self, payload: object, scope: str) -> List[EventItem]:
+        items = []
+        for item in self._payload_items(payload):
+            items.append(
+                EventItem(
+                    id=str(item.get("id", "")),
+                    scope=scope,
+                    title=self._first_non_empty(item, "titolo", "nome", "oggetto", "descrizioneBreve", "descrizione"),
+                    starts_at=self._first_datetime(item, "dataInizio", "inizio", "data", "giorno"),
+                    ends_at=self._first_datetime(item, "dataFine", "fine"),
+                    description=self._first_non_empty(item, "descrizione", "testo", "contenuto"),
+                    raw=dict(item),
+                )
+            )
+        return items
+
+    def _map_payments(self, payload: object) -> List[PaymentItem]:
+        items = []
+        for item in self._payload_items(payload):
+            items.append(
+                PaymentItem(
+                    id=str(item.get("id", "")),
+                    title=self._first_non_empty(item, "titolo", "tassa", "causale", "descrizione", "nome"),
+                    status=self._first_non_empty(item, "statoPagamento", "stato", "status"),
+                    amount=self._first_non_empty(item, "importoTotale", "importo", "ammontare"),
+                    due_date=self._first_datetime(item, "dataScadenzaRata", "scadenza", "dataScadenza", "data"),
+                    raw=dict(item),
+                )
+            )
+        return items
+
+    def _map_noticeboards(self, payload: object) -> List[NoticeboardItem]:
+        top_level = self._as_dict(payload)
+        top_level_actions = top_level.get("actions")
+        actions_fallback = top_level_actions if isinstance(top_level_actions, list) else []
+        items = []
+        for item in self._payload_items(payload):
+            metadata = self._as_dict(item.get("metadata"))
+            actions_value = item.get("actions", metadata.get("actions"))
+            actions = actions_value if isinstance(actions_value, list) else []
+            raw = dict(item)
+            if "count" in top_level:
+                raw.setdefault("_collection_count", top_level.get("count"))
+            if actions_fallback:
+                raw.setdefault("_collection_actions", actions_fallback)
+            items.append(
+                NoticeboardItem(
+                    id=str(item.get("id", "")),
+                    name=self._first_non_empty(item, "nome", "titolo", "name"),
+                    item_count=self._safe_int(item.get("count", metadata.get("count", item.get("conteggio")))),
+                    actions=[action for action in (actions or actions_fallback) if isinstance(action, dict)],
+                    raw=raw,
+                )
+            )
+        return items
+
+    def _map_questionnaires(self, payload: object) -> List[QuestionnaireItem]:
+        items = []
+        for item in self._payload_items(payload):
+            items.append(
+                QuestionnaireItem(
+                    id=str(item.get("id", "")),
+                    title=self._first_non_empty(item, "titolo", "nome", "oggetto"),
+                    status=self._first_non_empty(item, "stato", "status"),
+                    deadline=self._first_datetime(item, "scadenza", "dataScadenza", "termine"),
+                    raw=dict(item),
+                )
+            )
+        return items
+
+    def _map_fillable_forms(self, payload: object) -> List[FillableFormItem]:
+        items = []
+        for item in self._payload_items(payload):
+            items.append(
+                FillableFormItem(
+                    id=str(item.get("id", "")),
+                    title=self._first_non_empty(item, "titolo", "nome", "oggetto"),
+                    status=self._first_non_empty(item, "stato", "status"),
+                    deadline=self._first_datetime(item, "scadenza", "dataScadenza", "termine"),
+                    raw=dict(item),
+                )
+            )
+        return items
+
+    def _map_booked_meetings(self, payload: object) -> List[BookedMeetingItem]:
+        items = []
+        for item in self._payload_items(payload):
+            items.append(
+                BookedMeetingItem(
+                    id=str(item.get("id", "")),
+                    teacher=self._first_non_empty(item, "docente", "insegnante", "teacher"),
+                    starts_at=self._first_datetime(item, "dataInizio", "inizio", "startAt"),
+                    ends_at=self._first_datetime(item, "dataFine", "fine", "endAt"),
+                    status=self._first_non_empty(item, "stato", "status"),
+                    raw=dict(item),
+                )
+            )
+        return items
+
+    def _map_teacher_materials(self, payload: object) -> List[TeacherMaterialItem]:
+        items = []
+        for item in self._payload_items(payload):
+            attachments = item.get("allegati", item.get("attachments", []))
+            items.append(
+                TeacherMaterialItem(
+                    id=str(item.get("id", "")),
+                    title=self._first_non_empty(item, "titolo", "oggetto", "nome"),
+                    teacher=self._first_non_empty(item, "docente", "insegnante", "teacher"),
+                    subject=self._first_non_empty(item, "materia", "subject"),
+                    created_at=self._first_datetime(item, "dataCreazione", "createdAt", "data"),
+                    attachments=[value for value in attachments if isinstance(value, dict)] if isinstance(attachments, list) else [],
+                    raw=dict(item),
+                )
+            )
+        return items
+
     def authenticate(self, username: str, password: str, tenant: Optional[str] = None) -> SessionContext:
         login_page = self._session().get(self.base_url)
         login_page.raise_for_status()
@@ -243,6 +470,14 @@ class LegacyStudentApiAdapter:
             headers=self._headers(session.token),
         )
         return self._map_periods(payload)
+
+    def list_latest_grades(self, session: SessionContext, student_id: str, limit: int = 10) -> List[LatestGradeItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/voti",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id, "limit": limit},
+        )
+        return self._map_latest_grades(payload)
 
     def list_subject_grades(
         self,
@@ -305,3 +540,153 @@ class LegacyStudentApiAdapter:
             params={"contextAlunno": student_id},
         )
         return self._map_lesson_topics(payload)
+
+    def get_student_menu_options(self, session: SessionContext, student_id: str) -> dict[str, object]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/menu",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id},
+        )
+        return self._map_menu_options(payload)
+
+    def list_absences(self, session: SessionContext, student_id: str, limit: int = 10) -> List[AbsenceItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/assenze",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id, "limit": limit},
+        )
+        return self._map_absences(payload)
+
+    def list_notes(self, session: SessionContext, student_id: str, limit: int = 10) -> List[NoteItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/note",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id, "limit": limit},
+        )
+        return self._map_notes(payload)
+
+    def list_class_events(
+        self,
+        session: SessionContext,
+        student_id: str,
+        page: int = 1,
+        limit: int = 25,
+        ordering: str = "data_inizio_desc",
+        only_planner_visible: Optional[bool] = None,
+    ) -> List[EventItem]:
+        params = {"contextAlunno": student_id}
+        if only_planner_visible is None:
+            params.update({"filter[ordinamento]": ordering, "page": page, "limit": limit})
+        else:
+            params["soloVisibiliPlanner"] = "true" if only_planner_visible else "false"
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/eventi-classe",
+            headers=self._headers(session.token),
+            params=params,
+        )
+        return self._map_events(payload, scope="class")
+
+    def list_subject_events(
+        self,
+        session: SessionContext,
+        student_id: str,
+        page: int = 1,
+        limit: int = 25,
+        ordering: str = "data_inizio_desc",
+    ) -> List[EventItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/eventi-classe-materia",
+            headers=self._headers(session.token),
+            params={
+                "contextAlunno": student_id,
+                "filter[ordinamento]": ordering,
+                "page": page,
+                "limit": limit,
+            },
+        )
+        return self._map_events(payload, scope="subject")
+
+    def list_student_events(
+        self,
+        session: SessionContext,
+        student_id: str,
+        page: int = 1,
+        limit: int = 25,
+        ordering: str = "data_inizio_desc",
+    ) -> List[EventItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/eventi-alunno",
+            headers=self._headers(session.token),
+            params={
+                "contextAlunno": student_id,
+                "filter[ordinamento]": ordering,
+                "page": page,
+                "limit": limit,
+            },
+        )
+        return self._map_events(payload, scope="student")
+
+    def list_payments(
+        self,
+        session: SessionContext,
+        student_id: str,
+        status: str = "daPagare",
+        page: int = 1,
+        limit: int = 10,
+    ) -> List[PaymentItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/pagamenti",
+            headers=self._headers(session.token),
+            params={
+                "contextAlunno": student_id,
+                "filter[stato]": status,
+                "page": page,
+                "limit": limit,
+            },
+        )
+        return self._map_payments(payload)
+
+    def list_noticeboards(self, session: SessionContext, student_id: str, limit: int = 1000) -> List[NoticeboardItem]:
+        payload = self._get_json(
+            "/api-studente/v1/bacheche-digitali",
+            headers=self._headers(session.token),
+            params={
+                "fields": "id,nome",
+                "metadata": "count,actions",
+                "limit": limit,
+                "contextAlunno": student_id,
+            },
+        )
+        return self._map_noticeboards(payload)
+
+    def list_questionnaires(self, session: SessionContext, student_id: str) -> List[QuestionnaireItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/questionari",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id},
+        )
+        return self._map_questionnaires(payload)
+
+    def list_fillable_forms(self, session: SessionContext, student_id: str) -> List[FillableFormItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/moduli-compilabili",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id},
+        )
+        return self._map_fillable_forms(payload)
+
+    def list_booked_meetings(self, session: SessionContext, student_id: str) -> List[BookedMeetingItem]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/colloqui/prenotati",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id},
+        )
+        return self._map_booked_meetings(payload)
+
+    def list_teacher_materials(self, session: SessionContext, student_id: str) -> List[TeacherMaterialItem]:
+        payload = self._get_json(
+            "/api-studente/v1/materiali-per-docente",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id},
+        )
+        return self._map_teacher_materials(payload)

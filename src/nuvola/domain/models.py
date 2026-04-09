@@ -58,6 +58,15 @@ class GradeEntry:
 
 
 @dataclass(frozen=True)
+class LatestGradeItem:
+    subject_id: str
+    subject: str
+    period_id: str
+    entry: GradeEntry
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class SubjectGrades:
     subject_id: str
     subject: str
@@ -103,3 +112,91 @@ class LessonTopicEntry:
     attachments: List[dict] = field(default_factory=list)
     cosignatures: List[LessonCoSignature] = field(default_factory=list)
     videos: List[dict] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class AbsenceItem:
+    id: str
+    day: Optional[datetime]
+    kind: Optional[str]
+    description: Optional[str]
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NoteItem:
+    id: str
+    day: Optional[datetime]
+    kind: Optional[str]
+    teacher: Optional[str]
+    description: Optional[str]
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EventItem:
+    id: str
+    scope: str
+    title: Optional[str]
+    starts_at: Optional[datetime]
+    ends_at: Optional[datetime]
+    description: Optional[str]
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PaymentItem:
+    id: str
+    title: Optional[str]
+    status: Optional[str]
+    amount: Optional[str]
+    due_date: Optional[datetime]
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NoticeboardItem:
+    id: str
+    name: Optional[str]
+    item_count: Optional[int]
+    actions: List[dict] = field(default_factory=list)
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class QuestionnaireItem:
+    id: str
+    title: Optional[str]
+    status: Optional[str]
+    deadline: Optional[datetime]
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FillableFormItem:
+    id: str
+    title: Optional[str]
+    status: Optional[str]
+    deadline: Optional[datetime]
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class BookedMeetingItem:
+    id: str
+    teacher: Optional[str]
+    starts_at: Optional[datetime]
+    ends_at: Optional[datetime]
+    status: Optional[str]
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class TeacherMaterialItem:
+    id: str
+    title: Optional[str]
+    teacher: Optional[str]
+    subject: Optional[str]
+    created_at: Optional[datetime]
+    attachments: List[dict] = field(default_factory=list)
+    raw: Dict[str, object] = field(default_factory=dict)

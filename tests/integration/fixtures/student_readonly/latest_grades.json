@@ -1,0 +1,30 @@
+{
+  "valori": [
+    {
+      "data": "2026-03-31T00:00:00+02:00",
+      "docente": "DOCENTE TEST 5",
+      "tipologia": "SCRITTO",
+      "valutazione": "9.25",
+      "valutazioneMatematica": "9.25",
+      "faMedia": true,
+      "peso": "100%",
+      "descrizione": "Argomento verificato",
+      "strumentoProva": null,
+      "tipologiaSituazione": null,
+      "risorseMobilitate": null,
+      "autonomia": null,
+      "continuita": null,
+      "nomeObiettivo": null,
+      "obiettivi": [
+        {
+          "nome": "conoscenze",
+          "valutazione": "9",
+          "descrizione": "Padronanza dei contenuti"
+        }
+      ],
+      "nomeMateria": "MATERIA TEST",
+      "idMateria": 524,
+      "idFrazioneTemporale": 134
+    }
+  ]
+}
