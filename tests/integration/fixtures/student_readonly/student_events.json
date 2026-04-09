@@ -1,0 +1,11 @@
+{
+  "valori": [
+    {
+      "id": 303,
+      "nome": "Colloquio individuale",
+      "dataInizio": "2026-04-05T11:30:00+02:00",
+      "dataFine": "2026-04-05T11:45:00+02:00",
+      "contenuto": "Incontro con il coordinatore"
+    }
+  ]
+}

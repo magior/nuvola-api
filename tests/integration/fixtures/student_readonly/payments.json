@@ -1,0 +1,11 @@
+{
+  "valori": [
+    {
+      "id": 401,
+      "causale": "Contributo gita",
+      "stato": "daPagare",
+      "importoTotale": "35.50",
+      "dataScadenza": "2026-04-20T00:00:00+02:00"
+    }
+  ]
+}

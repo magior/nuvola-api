@@ -1,0 +1,10 @@
+{
+  "valori": [
+    {
+      "id": 101,
+      "giorno": "2026-04-01T00:00:00+02:00",
+      "tipo": "ASSENZA",
+      "descrizione": "Assenza per l'intera giornata"
+    }
+  ]
+}

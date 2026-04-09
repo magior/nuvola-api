@@ -1,0 +1,11 @@
+{
+  "valori": [
+    {
+      "id": 801,
+      "docente": "DOCENTE TEST 3",
+      "dataInizio": "2026-04-10T17:00:00+02:00",
+      "dataFine": "2026-04-10T17:10:00+02:00",
+      "stato": "PRENOTATO"
+    }
+  ]
+}
