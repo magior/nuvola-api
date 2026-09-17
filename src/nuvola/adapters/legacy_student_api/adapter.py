@@ -33,10 +33,13 @@ STANDARD_HOMEWORK_DATE_KEYS = {"dataAssegnazione", "dataConsegna"}
 
 class LegacyStudentApiAdapter:
     backend_name = "legacy_student"
-    _csrf_patterns = (
-        re.compile(r'name=["\']_csrf_token["\'][^>]*value=["\']([^"\']+)["\']'),
-        re.compile(r'value=["\']([^"\']+)["\'][^>]*name=["\']_csrf_token["\']'),
-    )
+    # Punto d'ingresso del flusso OIDC: `/login` e' una pagina JS che si limita
+    # a rimbalzare qui, quindi un client senza browser parte direttamente da questo URL.
+    auth_entrypoint = "/connect/authentication-service"
+    # Il tema Keycloak e' una SPA (`<div id="root">`), ma il server inietta in
+    # `<head>` un oggetto `kcContext` con l'URL di POST gia' pronto, comprensivo
+    # di `session_code` ed `execution`.
+    _login_action_pattern = re.compile(r'"loginAction"\s*:\s*"([^"]+)"')
 
     def __init__(self, session: Optional[Any] = None, base_url: str = "https://nuvola.madisoft.it"):
         self.session = session
@@ -68,7 +71,18 @@ class LegacyStudentApiAdapter:
             params=params,
         )
         response.raise_for_status()
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as exc:
+            # Senza questo contesto un errore del parser JSON non dice quale
+            # endpoint abbia risposto male, e la diagnosi riparte da zero.
+            content_type = getattr(response, "headers", {}).get("content-type", "?")
+            body = (getattr(response, "text", "") or "")[:200]
+            raise RuntimeError(
+                f"Risposta non JSON da {path} "
+                f"(status {getattr(response, 'status_code', '?')}, content-type {content_type}): "
+                f"{exc}. Inizio del corpo: {body!r}"
+            ) from exc
 
     def _extract_cookie(self, response: Any) -> Optional[str]:
         token = response.cookies.get("nuvola")
@@ -84,12 +98,19 @@ class LegacyStudentApiAdapter:
                 return token
         return None
 
-    def _extract_csrf_token(self, html: str) -> str:
-        for pattern in self._csrf_patterns:
-            match = pattern.search(html)
-            if match:
-                return match.group(1)
-        raise RuntimeError("Token CSRF non trovato nella pagina di login.")
+    def _extract_login_action(self, html: str) -> str:
+        match = self._login_action_pattern.search(html)
+        if not match:
+            raise RuntimeError(
+                "Form di login Keycloak non trovato: la sessione risulta gia' autenticata "
+                "oppure la pagina di login e' cambiata."
+            )
+        return match.group(1).replace("\\/", "/")
+
+    def _reset_session_cookies(self) -> None:
+        cookies = getattr(self._session(), "cookies", None)
+        if cookies is not None and hasattr(cookies, "clear"):
+            cookies.clear()
 
     def _map_students(self, payload: dict) -> List[Student]:
         students = []
@@ -436,16 +457,19 @@ class LegacyStudentApiAdapter:
         return items
 
     def authenticate(self, username: str, password: str, tenant: Optional[str] = None) -> SessionContext:
-        login_page = self._session().get(self.base_url)
+        # Un cookie `nuvola` residuo farebbe servire la dashboard invece del form,
+        # e l'estrazione di `loginAction` fallirebbe: si riparte sempre puliti.
+        self._reset_session_cookies()
+        login_page = self._session().get(self._url(self.auth_entrypoint))
         login_page.raise_for_status()
-        csrf_token = self._extract_csrf_token(login_page.text)
+        login_action = self._extract_login_action(login_page.text)
 
         response = self._session().post(
-            self._url("/login_check"),
+            login_action,
             data={
-                "_username": username,
-                "_password": password,
-                "_csrf_token": csrf_token,
+                "username": username,
+                "password": password,
+                "credentialId": "",
             },
         )
         response.raise_for_status()

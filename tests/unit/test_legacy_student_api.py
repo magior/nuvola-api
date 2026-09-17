@@ -8,15 +8,33 @@ from nuvola.domain.models import SessionContext
 FIXTURES = Path(__file__).resolve().parents[1] / "integration" / "fixtures"
 STUDENT_FIXTURES = FIXTURES / "student_readonly"
 
+KEYCLOAK_LOGIN_ACTION = (
+    "https://auth.nuvola.test/realms/nuvola/login-actions/authenticate"
+    "?session_code=SESSION_CODE&execution=EXECUTION&client_id=web&tab_id=TAB"
+)
+# Il tema Keycloak renderizza il form via JS: l'unica fonte server-side e'
+# l'oggetto `kcContext` iniettato nell'head.
+_KEYCLOAK_LOGIN_PAGE = (
+    "<html><head><script>const kcContext = {"
+    '"pageId": "login", "url": {'
+    '"oauthAction": "\\/realms/nuvola/login-actions/authenticate", '
+    f'"loginAction": "{KEYCLOAK_LOGIN_ACTION}"'
+    "}};</script></head><body><div id='root'></div></body></html>"
+)
+
 
 class _FakeCookies:
     def __init__(self, token=None):
         self._token = token
+        self.cleared = False
 
     def get(self, name):
         if name == "nuvola":
             return self._token
         return None
+
+    def clear(self):
+        self.cleared = True
 
 
 class _FakeResponse:
@@ -55,14 +73,8 @@ class _FakeSession:
 
     def get(self, url, headers=None, cookies=None, params=None):
         self.calls.append(("GET", url, headers, cookies, params))
-        if url == "https://nuvola.test":
-            return _FakeResponse(
-                text=(
-                    "<html><form>"
-                    "<input type='hidden' name='_csrf_token' value='csrf-token'>"
-                    "</form></html>"
-                )
-            )
+        if url == "https://nuvola.test/connect/authentication-service":
+            return _FakeResponse(text=_KEYCLOAK_LOGIN_PAGE)
         if url.endswith("/api-studente/v1/login-from-web"):
             return _FakeResponse(json_payload={"token": "BEARER_TOKEN"})
         if url.endswith("/api-studente/v1/alunno/9009/compito/elenco/09-03-2026/15-03-2026"):
@@ -99,22 +111,32 @@ class LegacyStudentApiAdapterTest(unittest.TestCase):
 
         self.assertEqual(context.backend, "legacy_student")
         self.assertEqual(context.token, "BEARER_TOKEN")
+        self.assertTrue(session.cookies.cleared)
         self.assertEqual(
             session.calls,
             [
-                ("GET", "https://nuvola.test", None, None, None),
+                ("GET", "https://nuvola.test/connect/authentication-service", None, None, None),
                 (
                     "POST",
-                    "https://nuvola.test/login_check",
+                    KEYCLOAK_LOGIN_ACTION,
                     {
-                        "_username": "user",
-                        "_password": "pass",
-                        "_csrf_token": "csrf-token",
+                        "username": "user",
+                        "password": "pass",
+                        "credentialId": "",
                     },
                 ),
                 ("GET", "https://nuvola.test/api-studente/v1/login-from-web", None, {"nuvola": "SESSION_COOKIE"}, None),
             ],
         )
+
+    def test_authenticate_fails_clearly_when_login_form_is_missing(self):
+        session = _FakeSession()
+        adapter = LegacyStudentApiAdapter(session=session, base_url="https://nuvola.test")
+
+        with self.assertRaises(RuntimeError) as caught:
+            adapter._extract_login_action("<html><body><div id='root'></div></body></html>")
+
+        self.assertIn("Keycloak", str(caught.exception))
 
     def test_map_homework_collects_extra_dates(self):
         payload = json.loads((FIXTURES / "homework_day.json").read_text(encoding="utf-8"))
@@ -404,3 +426,32 @@ class LegacyStudentApiAdapterTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GetJsonErrorContextTest(unittest.TestCase):
+    def test_non_json_response_reports_endpoint_and_body(self):
+        class _HtmlResponse:
+            status_code = 502
+            headers = {"content-type": "text/html"}
+            text = "<html><body>Bad Gateway</body></html>"
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+        class _HtmlSession:
+            def get(self, url, headers=None, cookies=None, params=None):
+                return _HtmlResponse()
+
+        adapter = LegacyStudentApiAdapter(session=_HtmlSession(), base_url="https://nuvola.test")
+
+        with self.assertRaises(RuntimeError) as caught:
+            adapter._get_json("/api-studente/v1/alunni")
+
+        message = str(caught.exception)
+        self.assertIn("/api-studente/v1/alunni", message)
+        self.assertIn("502", message)
+        self.assertIn("text/html", message)
+        self.assertIn("Bad Gateway", message)

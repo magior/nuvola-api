@@ -6,12 +6,31 @@ Nota: esempi, nomi di materia/docente, identificativi e riferimenti scolastici r
 
 ## Flusso di autenticazione
 
-- Login web classico sulla pagina `/login`
-- Cookie `nuvola` di sessione web
-- `GET /api-studente/v1/login-from-web`
-- Token Bearer usato per tutte le richieste `api-studente/v1/...`
+Aggiornato al 2026-09-17: Nuvola e' passata a Keycloak (OIDC authorization code).
+Il vecchio flusso Symfony (`GET /` con form `_csrf_token`, poi `POST /login_check`)
+non esiste piu'.
 
-Questo flusso e' coerente con il backend `legacy_student` usato da `nuvola-api`.
+1. `GET /connect/authentication-service` -> 302 verso
+   `https://auth.nuvola.madisoft.it/realms/nuvola/protocol/openid-connect/auth`
+   con `client_id=web` e `redirect_uri=/connect/authentication-service/check`.
+   La pagina `/login` e' solo un interstiziale JS che rimbalza qui, quindi un
+   client senza browser parte direttamente da questo URL.
+2. La pagina di login Keycloak usa il tema `nuvola-theme`, una SPA React: il
+   body e' solo `<div id="root">`. Il form va costruito a mano leggendo
+   `kcContext.url.loginAction` dallo `<script>` inline nell'head, che contiene
+   gia' `session_code` ed `execution`.
+3. `POST` su quel `loginAction` con i campi `username`, `password`, `credentialId`.
+4. Redirect su `/connect/authentication-service/check?code=...&state=...`, che
+   setta il cookie `nuvola` di sessione web.
+5. `GET /api-studente/v1/login-from-web` con quel cookie: invariato, restituisce
+   `token` (JWT) piu' `refreshToken`, `aree`, `richiesto2FA` e altri campi.
+6. Token Bearer usato per tutte le richieste `api-studente/v1/...`
+
+Dal punto 1 al 5 sono tutti redirect HTTP: nessun passaggio richiede JavaScript,
+l'unico lavoro manuale e' il POST del punto 3.
+
+Il direct grant di Keycloak non e' utilizzabile: `POST /protocol/openid-connect/token`
+con `grant_type=password&client_id=web` risponde `401 unauthorized_client`.
 
 ## Endpoint usati dalla UI
 
