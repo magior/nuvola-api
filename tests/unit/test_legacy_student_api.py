@@ -38,8 +38,9 @@ class _FakeCookies:
 
 
 class _FakeResponse:
-    def __init__(self, text="", json_payload=None, cookie=None, history=None):
+    def __init__(self, text="", json_payload=None, cookie=None, history=None, content=b""):
         self.text = text
+        self.content = content
         self._json_payload = json_payload
         self.cookies = _FakeCookies(cookie)
         self.history = history or []
@@ -69,6 +70,14 @@ class _FakeSession:
             "https://nuvola.test/api-studente/v1/alunno/9009/colloqui/prenotati": STUDENT_FIXTURES / "booked_meetings.json",
             "https://nuvola.test/api-studente/v1/materiali-per-docente": STUDENT_FIXTURES / "teacher_materials.json",
             "https://nuvola.test/api-studente/v1/alunno/9009/menu": None,
+            "https://nuvola.test/api-studente/v1/bacheche-digitali/12/documenti": STUDENT_FIXTURES / "noticeboard_documents.json",
+            "https://nuvola.test/api-studente/v1/bacheche-digitali/12/documenti/9001": (
+                STUDENT_FIXTURES / "noticeboard_document_detail.json"
+            ),
+            "https://nuvola.test/api-studente/v1/alunno/9009/notifiche/bacheche": (
+                STUDENT_FIXTURES / "noticeboard_notifications.json"
+            ),
+            "https://nuvola.test/api-studente/v1/alunno/9009/notifiche/conteggio": STUDENT_FIXTURES / "notification_counts.json",
         }
 
     def get(self, url, headers=None, cookies=None, params=None):
@@ -80,6 +89,8 @@ class _FakeSession:
         if url.endswith("/api-studente/v1/alunno/9009/compito/elenco/09-03-2026/15-03-2026"):
             payload = json.loads((FIXTURES / "homework_range.json").read_text(encoding="utf-8"))
             return _FakeResponse(json_payload=payload)
+        if "/file-preview/" in url:
+            return _FakeResponse(content=b"%PDF-1.4 fixture")
         if url.endswith("/api-studente/v1/alunno/9009/menu"):
             return _FakeResponse(
                 json_payload={
@@ -422,6 +433,80 @@ class LegacyStudentApiAdapterTest(unittest.TestCase):
         self.assertEqual(noticeboards[0].name, "COMUNICAZIONI")
         self.assertEqual(noticeboards[0].actions[0]["name"], "read")
         self.assertEqual(noticeboards[0].raw["_collection_count"], 1)
+
+    def test_noticeboard_documents_endpoints_are_read_only(self):
+        session = _FakeSession()
+        adapter = LegacyStudentApiAdapter(session=session, base_url="https://nuvola.test")
+        context = SessionContext(backend="legacy_student", token="BEARER_TOKEN")
+
+        documents = adapter.list_noticeboard_documents(context, "9009", "12")
+        archived = adapter.list_noticeboard_documents(context, "9009", "12", include_archived=True, limit=50, offset=25)
+        detail = adapter.get_noticeboard_document(context, "9009", "12", "9001")
+        content = adapter.download_attachment(context, "9009", detail.attachments[0].id)
+        notifications = adapter.list_noticeboard_notifications(context, "9009", limit=20)
+        counts = adapter.get_notification_counts(context, "9009")
+
+        self.assertEqual([document.id for document in documents], ["9003", "9002", "9001"])
+        self.assertEqual(documents[0].board_id, "12")
+        self.assertTrue(documents[0].is_read)
+        self.assertFalse(documents[2].is_read)
+        self.assertTrue(documents[1].requires_adhesion)
+        self.assertEqual(documents[1].adhesion_deadline.isoformat(), "2026-01-31T23:59:59+01:00")
+        self.assertEqual(documents[0].registry_date.date().isoformat(), "2026-01-20")
+        self.assertEqual(documents[0].raw["_collection_count"], 3)
+        self.assertEqual(len(archived), 3)
+
+        self.assertEqual(detail.subject, "Circolare di prova C")
+        self.assertEqual(detail.responsible_office, "UFFICIO DEMO")
+        self.assertIsNone(detail.responsible_user)
+        self.assertFalse(detail.cancelled)
+        self.assertEqual(detail.attachments[0].name, "circolare-demo.pdf")
+        self.assertEqual(detail.attachments[0].mime_type, "application/pdf")
+        self.assertEqual(content, b"%PDF-1.4 fixture")
+
+        self.assertEqual(notifications[0].board_id, "12")
+        self.assertEqual(notifications[0].document_id, "9002")
+        self.assertEqual(notifications[0].subject, "Circolare di prova B")
+        self.assertEqual(counts.noticeboards, 2)
+        self.assertEqual(counts.events, 0)
+
+        # Solo GET: `segna-letto` e qualsiasi altra scrittura non devono mai partire.
+        self.assertTrue(all(call[0] == "GET" for call in session.calls))
+        self.assertFalse(any("segna-letto" in call[1] for call in session.calls))
+
+        list_params = session.calls[0][4]
+        self.assertEqual(list_params["contextAlunno"], "9009")
+        self.assertEqual(list_params["limit"], 25)
+        self.assertEqual(list_params["orderBy[id]"], "desc")
+        self.assertNotIn("mostraArchiviati", list_params)
+        self.assertNotIn("offset", list_params)
+        self.assertEqual(list_params["metadata"], "count")
+        self.assertIn("oggetto", list_params["fields"].split(","))
+        archived_params = session.calls[1][4]
+        self.assertEqual(archived_params["mostraArchiviati"], "true")
+        self.assertEqual(archived_params["limit"], 50)
+        self.assertEqual(archived_params["offset"], 25)
+        self.assertIn("allegati", session.calls[2][4]["fields"].split(","))
+        self.assertEqual(
+            session.calls[3][1],
+            "https://nuvola.test/api-studente/v1/alunno/9009/file-preview/00000000-0000-4000-8000-000000000001",
+        )
+        self.assertEqual(session.calls[3][4], {"contextAlunno": "9009"})
+        self.assertEqual(session.calls[4][4]["limit"], 20)
+        self.assertEqual(session.calls[5][4], {"contextAlunno": "9009"})
+
+    def test_map_noticeboard_document_tolerates_missing_metadata_and_attachments(self):
+        document = self.adapter._map_noticeboard_document({"id": 5, "oggetto": "Avviso"}, "12")
+
+        self.assertEqual(document.id, "5")
+        self.assertIsNone(document.is_read)
+        self.assertIsNone(document.published_at)
+        self.assertEqual(document.attachments, [])
+
+    def test_map_notification_counts_defaults_to_zero(self):
+        counts = self.adapter._map_notification_counts({})
+
+        self.assertEqual((counts.events, counts.noticeboards), (0, 0))
 
 
 if __name__ == "__main__":

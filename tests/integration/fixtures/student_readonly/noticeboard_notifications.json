@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "payload": {
+        "idDocumentoBacheca": 9002,
+        "idBacheca": 12,
+        "oggetto": "Circolare di prova B"
+      },
+      "id": "9002",
+      "titolo": "Nuovo documento visibile nella bacheca digitale AVVISI DEMO",
+      "testo": "Nuovo documento pubblicato: \"Circolare di prova B\"",
+      "data": "2026-01-15T10:00:00+01:00"
+    }
+  ]
+}

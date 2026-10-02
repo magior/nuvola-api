@@ -11,6 +11,9 @@ from .models import (
     LatestGradeItem,
     NoteItem,
     NoticeboardItem,
+    NoticeboardDocument,
+    NoticeboardNotification,
+    NotificationCounts,
     PaymentItem,
     QuestionnaireItem,
     SessionContext,
@@ -117,6 +120,40 @@ class BackendAdapter(Protocol):
         student_id: str,
         limit: int = 1000,
     ) -> List[NoticeboardItem]:
+        ...
+
+    def list_noticeboard_documents(
+        self,
+        session: SessionContext,
+        student_id: str,
+        board_id: str,
+        include_archived: bool = False,
+        limit: int = 25,
+        offset: int = 0,
+    ) -> List[NoticeboardDocument]:
+        ...
+
+    def get_noticeboard_document(
+        self,
+        session: SessionContext,
+        student_id: str,
+        board_id: str,
+        document_id: str,
+    ) -> NoticeboardDocument:
+        ...
+
+    def download_attachment(self, session: SessionContext, student_id: str, attachment_id: str) -> bytes:
+        ...
+
+    def list_noticeboard_notifications(
+        self,
+        session: SessionContext,
+        student_id: str,
+        limit: int = 50,
+    ) -> List[NoticeboardNotification]:
+        ...
+
+    def get_notification_counts(self, session: SessionContext, student_id: str) -> NotificationCounts:
         ...
 
     def list_questionnaires(self, session: SessionContext, student_id: str) -> List[QuestionnaireItem]:
