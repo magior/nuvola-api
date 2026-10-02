@@ -12,6 +12,9 @@ from nuvola.domain.models import (
     LatestGradeItem,
     NoteItem,
     NoticeboardItem,
+    NoticeboardDocument,
+    NoticeboardNotification,
+    NotificationCounts,
     PaymentItem,
     QuestionnaireItem,
     SessionContext,
@@ -222,6 +225,62 @@ class NuvolaService:
             student_id,
             limit=limit,
         )
+
+    def list_noticeboard_documents(
+        self,
+        session: SessionContext,
+        student_id: str,
+        board_id: str,
+        include_archived: bool = False,
+        limit: int = 25,
+        offset: int = 0,
+    ) -> List[NoticeboardDocument]:
+        return use_cases.list_noticeboard_documents(
+            self.backends,
+            self.default_backend,
+            session,
+            student_id,
+            board_id,
+            include_archived=include_archived,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get_noticeboard_document(
+        self,
+        session: SessionContext,
+        student_id: str,
+        board_id: str,
+        document_id: str,
+    ) -> NoticeboardDocument:
+        return use_cases.get_noticeboard_document(
+            self.backends,
+            self.default_backend,
+            session,
+            student_id,
+            board_id,
+            document_id,
+        )
+
+    def download_attachment(self, session: SessionContext, student_id: str, attachment_id: str) -> bytes:
+        return use_cases.download_attachment(self.backends, self.default_backend, session, student_id, attachment_id)
+
+    def list_noticeboard_notifications(
+        self,
+        session: SessionContext,
+        student_id: str,
+        limit: int = 50,
+    ) -> List[NoticeboardNotification]:
+        return use_cases.list_noticeboard_notifications(
+            self.backends,
+            self.default_backend,
+            session,
+            student_id,
+            limit=limit,
+        )
+
+    def get_notification_counts(self, session: SessionContext, student_id: str) -> NotificationCounts:
+        return use_cases.get_notification_counts(self.backends, self.default_backend, session, student_id)
 
     def list_questionnaires(self, session: SessionContext, student_id: str) -> List[QuestionnaireItem]:
         return use_cases.list_questionnaires(self.backends, self.default_backend, session, student_id)

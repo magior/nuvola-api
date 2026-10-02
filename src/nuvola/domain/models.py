@@ -164,6 +164,59 @@ class NoticeboardItem:
 
 
 @dataclass(frozen=True)
+class NoticeboardAttachment:
+    id: str
+    name: Optional[str]
+    mime_type: Optional[str]
+
+
+@dataclass(frozen=True)
+class NoticeboardDocument:
+    """Documento di una bacheca digitale: le circolari della scuola sono di questo tipo."""
+
+    id: str
+    board_id: str
+    subject: Optional[str]
+    category: Optional[str]
+    registry_number: Optional[str]
+    registry_date: Optional[datetime]
+    published_at: Optional[datetime]
+    archived_at: Optional[datetime]
+    is_read: Optional[bool]
+    requires_adhesion: Optional[bool]
+    adhesion_deadline: Optional[datetime]
+    # Valorizzati solo dal dettaglio: la lista non li espone.
+    responsible_user: Optional[str] = None
+    responsible_office: Optional[str] = None
+    adhesion_text: Optional[str] = None
+    link: Optional[str] = None
+    link_text: Optional[str] = None
+    archived: Optional[bool] = None
+    cancelled: Optional[bool] = None
+    cancellation_reason: Optional[str] = None
+    attachments: List[NoticeboardAttachment] = field(default_factory=list)
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NoticeboardNotification:
+    id: str
+    title: Optional[str]
+    text: Optional[str]
+    created_at: Optional[datetime]
+    board_id: Optional[str]
+    document_id: Optional[str]
+    subject: Optional[str]
+    raw: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NotificationCounts:
+    events: int
+    noticeboards: int
+
+
+@dataclass(frozen=True)
 class QuestionnaireItem:
     id: str
     title: Optional[str]

@@ -1,7 +1,16 @@
 from collections import OrderedDict
 from typing import Iterable, List
 
-from nuvola.domain.models import GradePeriod, HomeworkItem, LessonTopicEntry, Student, SubjectGrades
+from nuvola.domain.models import (
+    GradePeriod,
+    HomeworkItem,
+    LessonTopicEntry,
+    NoticeboardDocument,
+    NoticeboardItem,
+    NoticeboardNotification,
+    Student,
+    SubjectGrades,
+)
 
 from .dates import format_display_date, format_display_datetime
 
@@ -123,3 +132,85 @@ def render_lesson_topics(entries: Iterable[LessonTopicEntry]) -> str:
                 lines.append(f"    cofirme: {cosignatures}")
         lines.append("")
     return "\n".join(lines).rstrip()
+
+
+def render_noticeboards(boards: Iterable[NoticeboardItem]) -> str:
+    board_list = list(boards)
+    if not board_list:
+        return "Nessuna bacheca disponibile."
+    lines = ["Bacheche disponibili:"]
+    for index, board in enumerate(board_list, start=1):
+        lines.append(f"{index}: {board.name or board.id}")
+    return "\n".join(lines)
+
+
+def render_noticeboard_documents(documents: Iterable[NoticeboardDocument], start: int = 1) -> str:
+    document_list = list(documents)
+    if not document_list:
+        return "Nessun documento in bacheca."
+
+    lines: List[str] = []
+    total = document_list[0].raw.get("_collection_count")
+    if isinstance(total, int) and (start > 1 or total > len(document_list)):
+        lines.append(f"Documenti {start}-{start + len(document_list) - 1} di {total}.")
+    for index, document in enumerate(document_list, start=start):
+        marker = "*" if document.is_read is False else " "
+        lines.append(
+            "{index:>3}{marker} {date} | {subject}".format(
+                index=index,
+                marker=marker,
+                date=format_display_date(document.published_at),
+                subject=document.subject or "-",
+            )
+        )
+    if any(document.is_read is False for document in document_list):
+        lines.append("(* = non letto)")
+    return "\n".join(lines)
+
+
+def render_noticeboard_document(document: NoticeboardDocument) -> str:
+    lines = [document.subject or "-"]
+    if document.cancelled:
+        reason = f": {document.cancellation_reason}" if document.cancellation_reason else ""
+        lines.append(f"  ANNULLATO{reason}")
+    lines.append(f"  titolario: {document.category or '-'}")
+    lines.append(
+        "  protocollo: {number} del {date}".format(
+            number=document.registry_number or "-",
+            date=format_display_date(document.registry_date),
+        )
+    )
+    lines.append(f"  pubblicato: {format_display_datetime(document.published_at)}")
+    lines.append(f"  archiviazione: {format_display_date(document.archived_at)}")
+    if document.responsible_office:
+        lines.append(f"  ufficio: {document.responsible_office}")
+    if document.responsible_user:
+        lines.append(f"  responsabile: {document.responsible_user}")
+    if document.requires_adhesion:
+        lines.append(f"  adesione richiesta entro: {format_display_datetime(document.adhesion_deadline)}")
+        if document.adhesion_text:
+            lines.append(f"    {document.adhesion_text}")
+    if document.link:
+        lines.append(f"  link: {document.link_text or document.link} ({document.link})")
+    if document.attachments:
+        lines.append("  allegati:")
+        for index, attachment in enumerate(document.attachments, start=1):
+            lines.append(f"    {index}: {attachment.name or attachment.id}")
+    else:
+        lines.append("  nessun allegato")
+    return "\n".join(lines)
+
+
+def render_noticeboard_notifications(notifications: Iterable[NoticeboardNotification]) -> str:
+    notification_list = list(notifications)
+    if not notification_list:
+        return "Nessuna notifica dalle bacheche."
+    lines = ["Notifiche bacheche:"]
+    for notification in notification_list:
+        lines.append(
+            "  {date} | {subject}".format(
+                date=format_display_date(notification.created_at),
+                subject=notification.subject or notification.text or "-",
+            )
+        )
+    return "\n".join(lines)

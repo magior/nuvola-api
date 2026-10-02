@@ -11,6 +11,9 @@ from nuvola.domain.models import (
     LatestGradeItem,
     NoteItem,
     NoticeboardItem,
+    NoticeboardDocument,
+    NoticeboardNotification,
+    NotificationCounts,
     PaymentItem,
     QuestionnaireItem,
     SessionContext,
@@ -117,6 +120,40 @@ class TenantApiAdapter:
 
     def list_noticeboards(self, session: SessionContext, student_id: str, limit: int = 1000) -> List[NoticeboardItem]:
         raise self._not_implemented("list_noticeboards", session.tenant)
+
+    def list_noticeboard_documents(
+        self,
+        session: SessionContext,
+        student_id: str,
+        board_id: str,
+        include_archived: bool = False,
+        limit: int = 25,
+        offset: int = 0,
+    ) -> List[NoticeboardDocument]:
+        raise self._not_implemented("list_noticeboard_documents", session.tenant)
+
+    def get_noticeboard_document(
+        self,
+        session: SessionContext,
+        student_id: str,
+        board_id: str,
+        document_id: str,
+    ) -> NoticeboardDocument:
+        raise self._not_implemented("get_noticeboard_document", session.tenant)
+
+    def download_attachment(self, session: SessionContext, student_id: str, attachment_id: str) -> bytes:
+        raise self._not_implemented("download_attachment", session.tenant)
+
+    def list_noticeboard_notifications(
+        self,
+        session: SessionContext,
+        student_id: str,
+        limit: int = 50,
+    ) -> List[NoticeboardNotification]:
+        raise self._not_implemented("list_noticeboard_notifications", session.tenant)
+
+    def get_notification_counts(self, session: SessionContext, student_id: str) -> NotificationCounts:
+        raise self._not_implemented("get_notification_counts", session.tenant)
 
     def list_questionnaires(self, session: SessionContext, student_id: str) -> List[QuestionnaireItem]:
         raise self._not_implemented("list_questionnaires", session.tenant)

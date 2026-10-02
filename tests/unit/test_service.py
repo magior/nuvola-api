@@ -59,6 +59,21 @@ class FakeBackend:
     def list_noticeboards(self, session, student_id, limit=1000):
         return ["noticeboards", student_id, limit]
 
+    def list_noticeboard_documents(self, session, student_id, board_id, include_archived=False, limit=25, offset=0):
+        return ["noticeboard_documents", student_id, board_id, include_archived, limit, offset]
+
+    def get_noticeboard_document(self, session, student_id, board_id, document_id):
+        return ["noticeboard_document", student_id, board_id, document_id]
+
+    def download_attachment(self, session, student_id, attachment_id):
+        return b"attachment:" + attachment_id.encode()
+
+    def list_noticeboard_notifications(self, session, student_id, limit=50):
+        return ["noticeboard_notifications", student_id, limit]
+
+    def get_notification_counts(self, session, student_id):
+        return ["notification_counts", student_id]
+
     def list_questionnaires(self, session, student_id):
         return ["questionnaires", student_id]
 
@@ -119,6 +134,20 @@ class ServiceTest(unittest.TestCase):
             )
             self.assertEqual(service.list_payments(session, "1", status="pagato", page=5, limit=6), ["payments", "1", "pagato", 5, 6])
             self.assertEqual(service.list_noticeboards(session, "1", limit=11), ["noticeboards", "1", 11])
+            self.assertEqual(
+                service.list_noticeboard_documents(session, "1", "12", include_archived=True, limit=40, offset=80),
+                ["noticeboard_documents", "1", "12", True, 40, 80],
+            )
+            self.assertEqual(
+                service.get_noticeboard_document(session, "1", "12", "9001"),
+                ["noticeboard_document", "1", "12", "9001"],
+            )
+            self.assertEqual(service.download_attachment(session, "1", "abc"), b"attachment:abc")
+            self.assertEqual(
+                service.list_noticeboard_notifications(session, "1", limit=5),
+                ["noticeboard_notifications", "1", 5],
+            )
+            self.assertEqual(service.get_notification_counts(session, "1"), ["notification_counts", "1"])
             self.assertEqual(service.list_questionnaires(session, "1"), ["questionnaires", "1"])
             self.assertEqual(service.list_fillable_forms(session, "1"), ["fillable_forms", "1"])
             self.assertEqual(service.list_booked_meetings(session, "1"), ["booked_meetings", "1"])
@@ -146,6 +175,16 @@ class ServiceTest(unittest.TestCase):
             adapter.list_payments(session, "1")
         with self.assertRaises(NotImplementedError):
             adapter.list_noticeboards(session, "1")
+        with self.assertRaises(NotImplementedError):
+            adapter.list_noticeboard_documents(session, "1", "12")
+        with self.assertRaises(NotImplementedError):
+            adapter.get_noticeboard_document(session, "1", "12", "9001")
+        with self.assertRaises(NotImplementedError):
+            adapter.download_attachment(session, "1", "abc")
+        with self.assertRaises(NotImplementedError):
+            adapter.list_noticeboard_notifications(session, "1")
+        with self.assertRaises(NotImplementedError):
+            adapter.get_notification_counts(session, "1")
         with self.assertRaises(NotImplementedError):
             adapter.list_questionnaires(session, "1")
         with self.assertRaises(NotImplementedError):

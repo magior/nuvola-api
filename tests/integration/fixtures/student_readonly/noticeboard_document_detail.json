@@ -1,0 +1,33 @@
+{
+  "id": 9001,
+  "dataPubblicazione": "2026-01-10T10:00:00+01:00",
+  "dataArchiviazione": "2026-06-30T23:59:59+02:00",
+  "archiviato": false,
+  "utenteResponsabile": null,
+  "ufficioResponsabile": "UFFICIO DEMO",
+  "nomeVoceTitolario": "CATEGORIA DEMO 2",
+  "numeroRegistro": "0000103",
+  "nomeRegistro": "REGISTRO PROTOCOLLO",
+  "dataNumeroRegistro": "2026-01-10",
+  "annullato": false,
+  "motivoAnnullamento": null,
+  "oggetto": "Circolare di prova C",
+  "adesioneRichiesta": false,
+  "dataScadenzaAdesione": null,
+  "testoRichiestaAdesione": null,
+  "logAbilitato": true,
+  "allegati": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "nome": "circolare-demo.pdf",
+      "mimeType": "application/pdf"
+    }
+  ],
+  "segnaturaXMLPresente": true,
+  "link": null,
+  "testoLink": null,
+  "documentoBachecaLetto": false,
+  "metadata": {
+    "isRead": false
+  }
+}

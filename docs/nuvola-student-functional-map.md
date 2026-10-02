@@ -297,6 +297,96 @@ Note:
 - endpoint dedicato, diverso dal namespace `alunno/{id}/...`
 - la presenza di `actions` nei metadata lascia intendere operazioni o stati oltre alla sola lista
 
+#### Dettaglio bacheca e documenti (circolari)
+
+Osservato da profilo tutore (`/area-tutore/bacheche/{board_id}`), stesso namespace `api-studente`.
+Le circolari della scuola sono documenti di una bacheca (es. una bacheca `COMUNICAZIONI`),
+non una sezione separata.
+
+Route UI:
+
+- `/area-tutore/bacheche/{board_id}` lista documenti
+- `/area-tutore/bacheche/{board_id}/documenti/{document_id}` dettaglio documento
+
+Endpoint osservati:
+
+- `GET /api-studente/v1/bacheche-digitali-new/{board_id}?contextAlunno={student_id}` intestazione bacheca
+- `GET /api-studente/v1/bacheche-digitali/{board_id}/documenti?contextAlunno={student_id}&fields=...&metadata=count,schema,actions&limit=25&orderBy[id]=desc&enumSerializationMethod=object`
+  - con toggle "Mostra archiviati" si aggiunge `mostraArchiviati` (include anche i documenti archiviati, molto piu' numerosi)
+  - paginazione a offset: pagina 2 = `offset=25&limit=25`; la prima pagina non manda `offset`
+  - la UI manda `metadata=count` solo sulla prima pagina (in una sessione precedente `count,schema,actions`)
+  - il valore esatto di `fields` non e' stato catturato
+- `GET /api-studente/v1/bacheche-digitali/{board_id}/documenti/{document_id}?contextAlunno={student_id}&fields=...&metadata=...`
+- `GET /api-studente/v1/alunno/{student_id}/file-preview/{attachment_uuid}?contextAlunno={student_id}` contenuto allegato, risposta binaria (PDF)
+  - usato sia da "Anteprima" (blob aperto in nuovo tab) sia da "Scarica" (blob salvato lato client): non esiste un endpoint di download separato
+  - il file servito e' la versione con segnatura di protocollo: il browser lo salva come
+    `firmato_<ts>_SEGNATURA_<ts>_<nome>.pdf`, diverso da `allegati[].nome`; il client salva con `allegati[].nome`
+- `POST /api-studente/v1/bacheche-digitali/{board_id}/documenti/{document_id}/segna-letto?contextAlunno={student_id}` senza body, risposta `204`
+
+Esempio voce della lista documenti (top level: `count`, `data`):
+
+```json
+{
+  "id": 9001,
+  "oggetto": "Circolare di prova",
+  "nomeVoceTitolario": "CATEGORIA DEMO",
+  "numeroRegistro": "0000101",
+  "dataNumeroRegistro": "2026-01-20",
+  "dataPubblicazione": "2026-01-20T10:00:00+01:00",
+  "dataArchiviazione": "2026-06-30T23:59:59+02:00",
+  "adesioneRichiesta": false,
+  "dataScadenzaAdesione": null,
+  "metadata": { "isRead": true }
+}
+```
+
+Campi aggiuntivi nel dettaglio documento:
+
+- `archiviato`, `annullato`, `motivoAnnullamento`
+- `utenteResponsabile`, `ufficioResponsabile`, `nomeRegistro`
+- `testoRichiestaAdesione`, `logAbilitato`
+- `allegati[]`: `{ "id": "<uuid>", "nome": "<file>.pdf", "mimeType": "application/pdf" }`
+- `segnaturaXMLPresente`, `link`, `testoLink`
+- `documentoBachecaLetto` (osservato `false` su un documento letto in passato con `metadata.isRead = true`;
+  `true` subito dopo `segna-letto` sui documenti con `logAbilitato = true`: probabilmente presa visione tracciata dalla scuola)
+
+Note:
+
+- la UI evidenzia in grassetto i documenti con `metadata.isRead = false`
+- la GET di dettaglio non marca il documento come letto; e' la UI che, aprendo un documento con `isRead = false`, chiama:
+  1. `GET .../documenti/{document_id}` (`isRead = false`)
+  2. `POST .../documenti/{document_id}/segna-letto` (`204`)
+  3. `GET .../documenti/{document_id}` di nuovo (`isRead = true`, `documentoBachecaLetto = true`)
+  4. `GET .../alunno/{student_id}/notifiche/conteggio` (il badge scende di uno)
+- aprire un documento gia' letto non genera chiamate di scrittura
+- un client in sola lettura puo' quindi leggere dettaglio e allegati senza alterare lo stato di lettura
+- `adesioneRichiesta` / `dataScadenzaAdesione` / `testoRichiestaAdesione` indicano circolari che richiedono adesione: flusso di scrittura non esplorato
+
+### Notifiche (campanella)
+
+Endpoint osservati:
+
+- `GET /api-studente/v1/alunno/{student_id}/notifiche/conteggio?contextAlunno={student_id}` caricato al bootstrap e dopo `segna-letto`, alimenta il badge; risposta `{"eventi": <n>, "bacheche": <n>}`
+- `GET /api-studente/v1/alunno/{student_id}/notifiche/bacheche?contextAlunno={student_id}&fields=...&limit=...&orderBy[data]=...`
+- `GET /api-studente/v1/alunno/{student_id}/notifiche/eventi?contextAlunno={student_id}&fields=...&limit=...&orderBy[data]=...`
+
+Esempio voce `notifiche/bacheche` (top level: solo `data`):
+
+```json
+{
+  "id": "9002",
+  "titolo": "Nuovo documento visibile nella bacheca digitale <NOME BACHECA>",
+  "testo": "Nuovo documento pubblicato: \"...\"",
+  "data": "2026-01-15T10:00:00+01:00",
+  "payload": { "idDocumentoBacheca": 9002, "idBacheca": 12, "oggetto": "..." }
+}
+```
+
+Note:
+
+- le notifiche bacheche corrispondono ai documenti non letti e puntano a `idBacheca` + `idDocumentoBacheca`
+- `help/news` (`estraiSoloDaLeggere=true`) e' caricato al bootstrap ma non e' legato alla campanella; probabilmente novita' di prodotto Madisoft
+
 ### Questionari
 
 Route:
@@ -364,7 +454,7 @@ Endpoint osservati:
 - Elenco `moduli compilati` e gestione bozze
 - Prenotazione colloqui e flusso `selezione-docente`
 - POST/upload reale per `materiali-per-docente/nuovo`
-- Dettaglio singola bacheca e azioni disponibili
+- Bacheche: valore di `fields`, flusso di adesione
 - Dettaglio eventi materia/alunno e relativi endpoint `.schema`, se presenti
 
 ## Conclusione

@@ -1,5 +1,6 @@
 import os
 from getpass import getpass
+from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 from nuvola.adapters.legacy_student_api import LegacyStudentApiAdapter
@@ -10,11 +11,14 @@ from nuvola.application.reports import (
     render_grade_periods,
     render_homework,
     render_lesson_topics,
+    render_noticeboard_document,
+    render_noticeboard_documents,
+    render_noticeboards,
     render_students,
     render_subject_grades,
 )
 from nuvola.application.service import NuvolaService
-from nuvola.domain.models import GradePeriod, SessionContext, Student
+from nuvola.domain.models import GradePeriod, NoticeboardAttachment, NoticeboardDocument, SessionContext, Student
 
 try:
     from colorama import Fore, Style, init
@@ -43,6 +47,8 @@ init(autoreset=True)
 InputFn = Callable[[str], str]
 OutputFn = Callable[[str], None]
 PasswordFn = Callable[[str], str]
+
+NOTICEBOARD_PAGE_SIZE = 25
 
 
 def build_service(default_backend: Optional[str] = None) -> NuvolaService:
@@ -138,6 +144,128 @@ def prompt_homework_range(active_student: Student, input_fn: InputFn = input, ou
     return normalize_date_range(start_date, end_date)
 
 
+def prompt_index(prompt: str, size: int, input_fn: InputFn = input, output: OutputFn = print) -> Optional[int]:
+    """Chiede un numero tra 1 e `size`; invio vuoto restituisce None (torna indietro)."""
+    while True:
+        choice = input_fn(prompt).strip()
+        if not choice:
+            return None
+        try:
+            index = int(choice)
+        except ValueError:
+            output(Fore.RED + "Inserisci un numero valido.")
+            continue
+        if 1 <= index <= size:
+            return index - 1
+        output(Fore.RED + "Scelta non valida. Riprova.")
+
+
+def save_attachment(content: bytes, attachment: NoticeboardAttachment, directory: Path) -> Path:
+    # Il nome arriva dal server: si tiene solo la parte finale per non uscire da `directory`.
+    name = Path((attachment.name or "").replace("\\", "/")).name.strip()
+    if name in {"", ".", ".."}:
+        name = f"{attachment.id}.bin"
+    target = directory / name
+    stem, suffix = target.stem, target.suffix
+    counter = 1
+    while target.exists():
+        target = directory / f"{stem} ({counter}){suffix}"
+        counter += 1
+    directory.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
+    return target
+
+
+def show_noticeboard_document(
+    service: NuvolaService,
+    session: SessionContext,
+    active_student: Student,
+    document: NoticeboardDocument,
+    download_dir: Path,
+    input_fn: InputFn = input,
+    output: OutputFn = print,
+) -> None:
+    detail = service.get_noticeboard_document(session, active_student.id, document.board_id, document.id)
+    output(render_noticeboard_document(detail))
+    while detail.attachments:
+        index = prompt_index("Numero allegato da scaricare (invio per tornare): ", len(detail.attachments), input_fn, output)
+        if index is None:
+            return
+        attachment = detail.attachments[index]
+        content = service.download_attachment(session, active_student.id, attachment.id)
+        target = save_attachment(content, attachment, download_dir)
+        output(Fore.GREEN + f"Salvato in {target}")
+
+
+def run_noticeboards(
+    service: NuvolaService,
+    session: SessionContext,
+    active_student: Student,
+    download_dir: Optional[Path] = None,
+    input_fn: InputFn = input,
+    output: OutputFn = print,
+) -> None:
+    download_dir = download_dir or Path(os.getenv("NUVOLA_DOWNLOAD_DIR", ".")).expanduser()
+    counts = service.get_notification_counts(session, active_student.id)
+    output(Fore.YELLOW + f"Documenti non letti in bacheca: {counts.noticeboards}")
+
+    boards = service.list_noticeboards(session, active_student.id)
+    if not boards:
+        output(Fore.YELLOW + render_noticeboards(boards))
+        return
+    if len(boards) == 1:
+        board = boards[0]
+    else:
+        output(Fore.YELLOW + render_noticeboards(boards))
+        index = prompt_index("Seleziona la bacheca (invio per tornare): ", len(boards), input_fn, output)
+        if index is None:
+            return
+        board = boards[index]
+
+    include_archived = False
+    offset = 0
+    while True:
+        documents = service.list_noticeboard_documents(
+            session,
+            active_student.id,
+            board.id,
+            include_archived=include_archived,
+            limit=NOTICEBOARD_PAGE_SIZE,
+            offset=offset,
+        )
+        total = documents[0].raw.get("_collection_count") if documents else None
+        has_next = isinstance(total, int) and offset + len(documents) < total
+        output(Fore.YELLOW + (board.name or board.id) + (" (con archiviati)" if include_archived else ""))
+        output(render_noticeboard_documents(documents, start=offset + 1))
+        commands = ["'a' archiviati on/off"]
+        if has_next:
+            commands.append("'n' pagina successiva")
+        if offset:
+            commands.append("'p' pagina precedente")
+        choice = input_fn(f"Numero documento, {', '.join(commands)}, invio per tornare: ").strip().lower()
+        if not choice:
+            return
+        if choice == "a":
+            include_archived = not include_archived
+            offset = 0
+            continue
+        if choice == "n" and has_next:
+            offset += len(documents)
+            continue
+        if choice == "p" and offset:
+            offset = max(0, offset - NOTICEBOARD_PAGE_SIZE)
+            continue
+        try:
+            index = int(choice) - 1 - offset
+        except ValueError:
+            output(Fore.RED + "Inserisci un numero valido.")
+            continue
+        if not 0 <= index < len(documents):
+            output(Fore.RED + "Scelta non valida. Riprova.")
+            continue
+        show_noticeboard_document(service, session, active_student, documents[index], download_dir, input_fn, output)
+
+
 def authenticate(
     service: NuvolaService,
     input_fn: InputFn = input,
@@ -190,6 +318,7 @@ def run_menu(
         output(Fore.CYAN + "2 Compiti")
         output(Fore.CYAN + "3 Argomenti svolti")
         output(Fore.CYAN + "4 Cambia studente")
+        output(Fore.CYAN + "5 Bacheche e circolari")
         output(Fore.CYAN + "0 Esci")
         choice = input_fn("Inserisci la tua scelta: ").strip()
 
@@ -211,6 +340,8 @@ def run_menu(
             active_student = choose_student(students, force_prompt=True, input_fn=input_fn, output=output)
             session = service.select_student(session, active_student.id)
             output(Fore.YELLOW + "Studente attivo: " + active_student.label)
+        elif choice == "5":
+            run_noticeboards(service, session, active_student, input_fn=input_fn, output=output)
         elif choice == "0":
             return
         else:

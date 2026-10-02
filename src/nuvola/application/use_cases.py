@@ -14,6 +14,9 @@ from nuvola.domain.models import (
     LatestGradeItem,
     NoteItem,
     NoticeboardItem,
+    NoticeboardDocument,
+    NoticeboardNotification,
+    NotificationCounts,
     PaymentItem,
     QuestionnaireItem,
     SessionContext,
@@ -256,6 +259,79 @@ def list_noticeboards(
         student_id,
         limit=limit,
     )
+
+
+def list_noticeboard_documents(
+    backends: Dict[str, BackendAdapter],
+    default_backend: str,
+    session: SessionContext,
+    student_id: str,
+    board_id: str,
+    include_archived: bool = False,
+    limit: int = 25,
+    offset: int = 0,
+) -> List[NoticeboardDocument]:
+    return resolve_backend(backends, default_backend, session.backend).list_noticeboard_documents(
+        session,
+        student_id,
+        board_id,
+        include_archived=include_archived,
+        limit=limit,
+        offset=offset,
+    )
+
+
+def get_noticeboard_document(
+    backends: Dict[str, BackendAdapter],
+    default_backend: str,
+    session: SessionContext,
+    student_id: str,
+    board_id: str,
+    document_id: str,
+) -> NoticeboardDocument:
+    return resolve_backend(backends, default_backend, session.backend).get_noticeboard_document(
+        session,
+        student_id,
+        board_id,
+        document_id,
+    )
+
+
+def download_attachment(
+    backends: Dict[str, BackendAdapter],
+    default_backend: str,
+    session: SessionContext,
+    student_id: str,
+    attachment_id: str,
+) -> bytes:
+    return resolve_backend(backends, default_backend, session.backend).download_attachment(
+        session,
+        student_id,
+        attachment_id,
+    )
+
+
+def list_noticeboard_notifications(
+    backends: Dict[str, BackendAdapter],
+    default_backend: str,
+    session: SessionContext,
+    student_id: str,
+    limit: int = 50,
+) -> List[NoticeboardNotification]:
+    return resolve_backend(backends, default_backend, session.backend).list_noticeboard_notifications(
+        session,
+        student_id,
+        limit=limit,
+    )
+
+
+def get_notification_counts(
+    backends: Dict[str, BackendAdapter],
+    default_backend: str,
+    session: SessionContext,
+    student_id: str,
+) -> NotificationCounts:
+    return resolve_backend(backends, default_backend, session.backend).get_notification_counts(session, student_id)
 
 
 def list_questionnaires(

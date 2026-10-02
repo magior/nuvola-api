@@ -20,6 +20,10 @@ from nuvola.domain.models import (
     LatestGradeItem,
     NoteItem,
     NoticeboardItem,
+    NoticeboardAttachment,
+    NoticeboardDocument,
+    NoticeboardNotification,
+    NotificationCounts,
     PaymentItem,
     QuestionnaireItem,
     SessionContext,
@@ -29,6 +33,48 @@ from nuvola.domain.models import (
 )
 
 STANDARD_HOMEWORK_DATE_KEYS = {"dataAssegnazione", "dataConsegna"}
+
+# Campi richiesti dalla UI web, ricavati dalle chiavi delle risposte osservate.
+NOTICEBOARD_DOCUMENT_LIST_FIELDS = ",".join(
+    (
+        "id",
+        "oggetto",
+        "nomeVoceTitolario",
+        "numeroRegistro",
+        "dataNumeroRegistro",
+        "dataPubblicazione",
+        "dataArchiviazione",
+        "adesioneRichiesta",
+        "dataScadenzaAdesione",
+    )
+)
+NOTICEBOARD_DOCUMENT_DETAIL_FIELDS = ",".join(
+    (
+        "id",
+        "oggetto",
+        "nomeVoceTitolario",
+        "numeroRegistro",
+        "nomeRegistro",
+        "dataNumeroRegistro",
+        "dataPubblicazione",
+        "dataArchiviazione",
+        "archiviato",
+        "annullato",
+        "motivoAnnullamento",
+        "utenteResponsabile",
+        "ufficioResponsabile",
+        "adesioneRichiesta",
+        "dataScadenzaAdesione",
+        "testoRichiestaAdesione",
+        "logAbilitato",
+        "allegati",
+        "segnaturaXMLPresente",
+        "link",
+        "testoLink",
+        "documentoBachecaLetto",
+    )
+)
+NOTICEBOARD_NOTIFICATION_FIELDS = "id,titolo,testo,data,payload"
 
 
 class LegacyStudentApiAdapter:
@@ -83,6 +129,15 @@ class LegacyStudentApiAdapter:
                 f"(status {getattr(response, 'status_code', '?')}, content-type {content_type}): "
                 f"{exc}. Inizio del corpo: {body!r}"
             ) from exc
+
+    def _get_bytes(self, path: str, *, headers=None, params=None) -> bytes:
+        response = self._session().get(
+            self._url(path),
+            headers=headers,
+            params=params,
+        )
+        response.raise_for_status()
+        return response.content
 
     def _extract_cookie(self, response: Any) -> Optional[str]:
         token = response.cookies.get("nuvola")
@@ -396,6 +451,83 @@ class LegacyStudentApiAdapter:
             )
         return items
 
+    @staticmethod
+    def _optional_bool(value: object) -> Optional[bool]:
+        return value if isinstance(value, bool) else None
+
+    def _map_noticeboard_document(self, item: dict, board_id: str) -> NoticeboardDocument:
+        metadata = self._as_dict(item.get("metadata"))
+        attachments_value = item.get("allegati")
+        attachments = [
+            NoticeboardAttachment(
+                id=str(attachment.get("id", "")),
+                name=self._first_non_empty(attachment, "nome", "name"),
+                mime_type=self._first_non_empty(attachment, "mimeType"),
+            )
+            for attachment in (attachments_value if isinstance(attachments_value, list) else [])
+            if isinstance(attachment, dict)
+        ]
+        return NoticeboardDocument(
+            id=str(item.get("id", "")),
+            board_id=board_id,
+            subject=self._first_non_empty(item, "oggetto", "titolo"),
+            category=self._first_non_empty(item, "nomeVoceTitolario"),
+            registry_number=self._first_non_empty(item, "numeroRegistro"),
+            registry_date=self._first_datetime(item, "dataNumeroRegistro"),
+            published_at=self._first_datetime(item, "dataPubblicazione"),
+            archived_at=self._first_datetime(item, "dataArchiviazione"),
+            is_read=self._optional_bool(metadata.get("isRead")),
+            requires_adhesion=self._optional_bool(item.get("adesioneRichiesta")),
+            adhesion_deadline=self._first_datetime(item, "dataScadenzaAdesione"),
+            responsible_user=self._first_non_empty(item, "utenteResponsabile"),
+            responsible_office=self._first_non_empty(item, "ufficioResponsabile"),
+            adhesion_text=self._first_non_empty(item, "testoRichiestaAdesione"),
+            link=self._first_non_empty(item, "link"),
+            link_text=self._first_non_empty(item, "testoLink"),
+            archived=self._optional_bool(item.get("archiviato")),
+            cancelled=self._optional_bool(item.get("annullato")),
+            cancellation_reason=self._first_non_empty(item, "motivoAnnullamento"),
+            attachments=attachments,
+            raw=dict(item),
+        )
+
+    def _map_noticeboard_documents(self, payload: object, board_id: str) -> List[NoticeboardDocument]:
+        top_level = self._as_dict(payload)
+        items = []
+        for item in self._payload_items(payload):
+            document = self._map_noticeboard_document(item, board_id)
+            if "count" in top_level:
+                document.raw.setdefault("_collection_count", top_level.get("count"))
+            items.append(document)
+        return items
+
+    def _map_noticeboard_notifications(self, payload: object) -> List[NoticeboardNotification]:
+        items = []
+        for item in self._payload_items(payload):
+            data = self._as_dict(item.get("payload"))
+            board_id = data.get("idBacheca")
+            document_id = data.get("idDocumentoBacheca", item.get("id"))
+            items.append(
+                NoticeboardNotification(
+                    id=str(item.get("id", "")),
+                    title=self._first_non_empty(item, "titolo"),
+                    text=self._first_non_empty(item, "testo"),
+                    created_at=self._first_datetime(item, "data"),
+                    board_id=str(board_id) if board_id is not None else None,
+                    document_id=str(document_id) if document_id is not None else None,
+                    subject=self._first_non_empty(data, "oggetto"),
+                    raw=dict(item),
+                )
+            )
+        return items
+
+    def _map_notification_counts(self, payload: object) -> NotificationCounts:
+        data = self._as_dict(payload)
+        return NotificationCounts(
+            events=self._safe_int(data.get("eventi")) or 0,
+            noticeboards=self._safe_int(data.get("bacheche")) or 0,
+        )
+
     def _map_questionnaires(self, payload: object) -> List[QuestionnaireItem]:
         items = []
         for item in self._payload_items(payload):
@@ -682,6 +814,93 @@ class LegacyStudentApiAdapter:
             },
         )
         return self._map_noticeboards(payload)
+
+    # Le letture dei documenti non cambiano lo stato "letto": e' la UI web che,
+    # aprendo un documento non letto, chiama a parte `POST .../segna-letto`.
+    # Qui quella chiamata non viene mai fatta.
+
+    def list_noticeboard_documents(
+        self,
+        session: SessionContext,
+        student_id: str,
+        board_id: str,
+        include_archived: bool = False,
+        limit: int = 25,
+        offset: int = 0,
+    ) -> List[NoticeboardDocument]:
+        params: Dict[str, object] = {"contextAlunno": student_id}
+        if include_archived:
+            params["mostraArchiviati"] = "true"
+        params["fields"] = NOTICEBOARD_DOCUMENT_LIST_FIELDS
+        # La UI chiede `metadata=count` solo sulla prima pagina; qui serve sempre
+        # per sapere quante pagine ci sono.
+        params["metadata"] = "count"
+        if offset:
+            params["offset"] = offset
+        params.update(
+            {
+                "limit": limit,
+                "orderBy[id]": "desc",
+                "enumSerializationMethod": "object",
+            }
+        )
+        payload = self._get_json(
+            f"/api-studente/v1/bacheche-digitali/{board_id}/documenti",
+            headers=self._headers(session.token),
+            params=params,
+        )
+        return self._map_noticeboard_documents(payload, board_id)
+
+    def get_noticeboard_document(
+        self,
+        session: SessionContext,
+        student_id: str,
+        board_id: str,
+        document_id: str,
+    ) -> NoticeboardDocument:
+        payload = self._get_json(
+            f"/api-studente/v1/bacheche-digitali/{board_id}/documenti/{document_id}",
+            headers=self._headers(session.token),
+            params={
+                "fields": NOTICEBOARD_DOCUMENT_DETAIL_FIELDS,
+                "contextAlunno": student_id,
+            },
+        )
+        return self._map_noticeboard_document(self._as_dict(payload), board_id)
+
+    def download_attachment(self, session: SessionContext, student_id: str, attachment_id: str) -> bytes:
+        # La UI usa lo stesso endpoint sia per l'anteprima sia per il download.
+        return self._get_bytes(
+            f"/api-studente/v1/alunno/{student_id}/file-preview/{attachment_id}",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id},
+        )
+
+    def list_noticeboard_notifications(
+        self,
+        session: SessionContext,
+        student_id: str,
+        limit: int = 50,
+    ) -> List[NoticeboardNotification]:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/notifiche/bacheche",
+            headers=self._headers(session.token),
+            params={
+                "contextAlunno": student_id,
+                "fields": NOTICEBOARD_NOTIFICATION_FIELDS,
+                "limit": limit,
+                "orderBy[data]": "desc",
+            },
+        )
+        return self._map_noticeboard_notifications(payload)
+
+    def get_notification_counts(self, session: SessionContext, student_id: str) -> NotificationCounts:
+        payload = self._get_json(
+            f"/api-studente/v1/alunno/{student_id}/notifiche/conteggio",
+            headers=self._headers(session.token),
+            params={"contextAlunno": student_id},
+        )
+        return self._map_notification_counts(payload)
 
     def list_questionnaires(self, session: SessionContext, student_id: str) -> List[QuestionnaireItem]:
         payload = self._get_json(

@@ -61,5 +61,8 @@ Variabili ambiente supportate:
 - `NUVOLA_BACKEND=legacy_student`
 - `NUVOLA_BACKEND=tenant`
 - `NUVOLA_TENANT=<tenant>`
+- `NUVOLA_DOWNLOAD_DIR=<cartella>` destinazione degli allegati scaricati da "Bacheche e circolari" (default: cartella corrente)
+
+La voce "Bacheche e circolari" e' in sola lettura: consultare documenti e scaricare allegati non li segna come letti in Nuvola.
 
 La CLI usa esclusivamente il layer applicativo per login, ripresa sessione, selezione studente e report.
